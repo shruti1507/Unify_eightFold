@@ -153,7 +153,3 @@ The pipeline has been thoroughly tested against complex "Chaos Monkey" edge case
    - **Normalization**: Phone numbers are correctly sanitized (e.g., William Smith's), and skills are canonicalized to lowercase without duplicates. The pipeline intelligently splits comma-separated string inputs when it expects arrays.
    - **Resilience**: The pipeline does not crash or invent data when faced with missing fields (such as Bill Smith's missing skills), proving it is robust against malformed or incomplete inputs.
    - **Confidence Weighting**: Deep nested paths (e.g., `experience[0].company`) correctly evaluate high-confidence sources. If a high-confidence source returns `null` or `undefined`, the engine explicitly filters it out, seamlessly falling back to a lower-confidence valid value.
-
-## Demo Video
-
-*(Demo video placeholder - to be added by user)*
