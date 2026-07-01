@@ -19,82 +19,88 @@ This project is a React-based application that dynamically ingests candidate dat
    ```
 5. Open your browser and navigate to `http://localhost:5173` to use the interactive application. You can paste your ATS JSON, GitHub JSON, and Runtime Config JSON into the provided fields and click **Unify** to generate the Canonical Profile.
 
-## Sample Inputs
+## Master Test Case: Batch Processing
 
-**ATS Payload (Rahul Sharma)**
+Instead of processing single candidates, the engine performs batch reconciliation across multiple sources, handling complex identity resolution and conflict scenarios in a single pass.
+
+## Sample Inputs (Batch Master Set)
+
+**ATS Payload (Subset Example):**
 ```json
-{
-  "candidate_id": "ats-ind-01",
-  "first_name": "Rahul",
-  "last_name": "Sharma",
-  "contact_info": {
-    "email": "rahul.s@tech.in",
-    "mobile": "+91 98765-43210 (Personal)" 
+[
+  {
+    "candidate_id": "ats-01",
+    "first_name": "Rahul",
+    "last_name": "Sharma",
+    "contact_info": { "email": "rahul.s@tech.in", "mobile": "+91 98765-43210" },
+    "technical_skills": ["REACT", "node.js"]
   },
-  "work_history": [
-    {
-      "company_name": "Flipkart",
-      "role": "SDE II"
-    }
-  ],
-  "technical_skills": ["REACT", "node.js", "React "] 
-}
+  {
+    "candidate_id": "ats-02",
+    "first_name": "Chaos",
+    "last_name": "Monkey",
+    "contact_info": { "email": "chaos@testing.com", "mobile": "+1 800 555 0199" },
+    "technical_skills": "TypeScript, GraphQL"
+  }
+]
 ```
 
-**GitHub Payload (Rahul Sharma)**
+**GitHub Payload (Subset Example):**
 ```json
-{
-  "login": "rahul-dev",
-  "name": "Rahul Sharma", 
-  "email": "rahul.codes@github.com", 
-  "company": "@Flipkart", 
-  "location": "Bengaluru, India"
-}
+[
+  {
+    "login": "rahul-dev",
+    "name": "Rahul Sharma",
+    "email": "rahul.codes@github.com",
+    "company": "@Flipkart"
+  },
+  {
+    "login": "chaos-monkey",
+    "name": "Chaos Monkey",
+    "email": "chaos@testing.com",
+    "company": "Netflix"
+  }
+]
 ```
 
 **Runtime Configuration**
 ```json
 {
-  "output_schema": {
-    "include_provenance": true,
-    "fields": [
-      {
-        "target_key": "full_name",
-        "internal_path": "name",
-        "on_missing": "error"
-      },
-      {
-        "target_key": "primary_email",
-        "internal_path": "email",
-        "on_missing": "error"
-      },
-      {
-        "target_key": "phone_number",
-        "internal_path": "phone",
-        "normalizer": "e164",
-        "on_missing": "omit" 
-      },
-      {
-        "target_key": "skills",
-        "internal_path": "skills",
-        "normalizer": "lowercase_dedupe",
-        "on_missing": "omit"
-      },
-      {
-        "target_key": "current_employer",
-        "internal_path": "experience[0].company",
-        "on_missing": "return_null"
-      }
-    ]
-  },
-  "confidence_weights": {
-    "ats": 0.9,
-    "github": 0.6
-  }
+  "include_provenance": true,
+  "fields": [
+    {
+      "target_key": "full_name",
+      "internal_path": "name",
+      "on_missing": "error"
+    },
+    {
+      "target_key": "primary_email",
+      "internal_path": "email",
+      "on_missing": "error"
+    },
+    {
+      "target_key": "phone_number",
+      "internal_path": "phone",
+      "normalizer": "e164",
+      "on_missing": "omit"
+    },
+    {
+      "target_key": "skills",
+      "internal_path": "skills",
+      "normalizer": "lowercase_dedupe",
+      "on_missing": "return_null"
+    },
+    {
+      "target_key": "current_employer",
+      "internal_path": "experience[0].company",
+      "normalizer": "strip_special_chars",
+      "on_missing": "return_null"
+    }
+  ]
 }
 ```
 
-## Sample Output Produced
+## Sample Output Produced (Master Dataset)
 
 The engine successfully connects the ATS and GitHub data using a Tier-3 compound match (Name + Normalized Company Name). It unions the email arrays, deduplicates the skills, normalizes the phone number (stripping symbols and spaces), extracts the deep path for `current_employer`, and outputs a flat, strict canonical profile:
 
@@ -102,47 +108,34 @@ The engine successfully connects the ATS and GitHub data using a Tier-3 compound
 [
   {
     "full_name": "Rahul Sharma",
-    "primary_email": [
-      "rahul.s@tech.in",
-      "rahul.codes@github.com"
-    ],
+    "primary_email": ["rahul.s@tech.in", "rahul.codes@github.com"],
     "phone_number": "+919876543210",
-    "skills": [
-      "react",
-      "node.js"
-    ],
+    "skills": ["react", "node.js"],
     "current_employer": "Flipkart",
     "provenance": [
-      {
-        "field": "full_name",
-        "source": "ATS",
-        "confidence": 0.9
-      },
-      {
-        "field": "primary_email",
-        "source": "ATS,GitHub",
-        "confidence": 0.9
-      },
-      {
-        "field": "phone_number",
-        "source": "ATS",
-        "confidence": 0.9
-      },
-      {
-        "field": "skills",
-        "source": "ATS",
-        "confidence": 0.9
-      },
-      {
-        "field": "current_employer",
-        "source": "ATS",
-        "confidence": 0.9
-      }
+      { "field": "full_name", "source": "ATS", "confidence": 0.9 },
+      { "field": "primary_email", "source": "ATS,GitHub", "confidence": 0.9 },
+      { "field": "phone_number", "source": "ATS", "confidence": 0.9 },
+      { "field": "skills", "source": "ATS", "confidence": 0.9 },
+      { "field": "current_employer", "source": "ATS,GitHub", "confidence": 0.9 }
+    ]
+  },
+  {
+    "full_name": "Chaos Monkey",
+    "primary_email": ["chaos@testing.com"],
+    "phone_number": "+18005550199",
+    "skills": ["typescript", "graphql"],
+    "current_employer": "Netflix",
+    "provenance": [
+      { "field": "full_name", "source": "ATS", "confidence": 0.9 },
+      { "field": "primary_email", "source": "ATS,GitHub", "confidence": 0.9 },
+      { "field": "phone_number", "source": "ATS", "confidence": 0.9 },
+      { "field": "skills", "source": "ATS", "confidence": 0.9 },
+      { "field": "current_employer", "source": "ATS,GitHub", "confidence": 0.9 }
     ]
   }
 ]
 ```
-
 ## Engine Testing
 
 The pipeline has been thoroughly tested against complex "Chaos Monkey" edge cases to ensure robust error handling and fault tolerance:
